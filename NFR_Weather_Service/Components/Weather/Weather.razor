@@ -20,7 +20,7 @@
 <button @onclick="LoadWeatherInformation" disabled="@_isLoading" class="btn rounded px-4">
 @if(_isLoading)
 {
-    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true></span>
+    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
     <span>Loading ...</span>
 }
 else
@@ -40,7 +40,7 @@ else
     {
         <div>
             <strong>Unable to generate report</strong>
-            <p>@_errormessage</p>
+            <p>@_errorMessage</p>
         </div>
     }
     else if (_weatherReport == null)
@@ -58,7 +58,7 @@ else
     private WeatherReport? _weatherReport;
     private string? _addressString;
     private bool _isLoading;
-    private string> _errorMessage;
+    private string? _errorMessage;
 
     private async Task LoadWeatherInformation()
     {
@@ -87,8 +87,8 @@ else
         }
         catch (Exception e)
         {
-            Logger.LogWarning(ex, "Couldn't resolve weather data for: {Address}", _addressString);
-            _errorMessage = ex.Message;
+            Logger.LogWarning(e, "Couldn't resolve weather data for: {Address}", _addressString);
+            _errorMessage = e.Message;
             _weatherReport = null;
         }
         finally
