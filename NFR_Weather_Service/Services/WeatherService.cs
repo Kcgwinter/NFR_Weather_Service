@@ -113,7 +113,7 @@ public class WeatherService
         //     $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
 
         string url =
-            $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=4&format=json";
+            $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
 
         using var doc = await GetJsonAsync(url, acceptHeader: "application/json");
 
