@@ -133,6 +133,8 @@ public class WeatherService
         request.Headers.Add("Accept", acceptHeader);
         using var response = await _http.SendAsync(request);
 
+        response.EnsureSuccessStatusCode();
+
         string json = await response.Content.ReadAsStringAsync();
         JsonDocument document = JsonDocument.Parse(json);
         return document;
