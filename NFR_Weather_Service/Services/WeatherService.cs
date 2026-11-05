@@ -54,7 +54,7 @@ public class WeatherService
         return (snowMeters * 39.3701, iceMeters * 39.3701);
     }
 
-    private async Task<(double? tempF, double rainInches, string rainTimeFrame bool isFreezingRain)> GetLatestWeatherDataAsync(
+    private async Task<(double? tempF, double rainInches, string rainTimeFrame, bool isFreezingRain)> GetLatestWeatherDataAsync(
         string stationId)
     {
         string url = $"{noaaUrl}/stations/{stationId}/observations/latest";
