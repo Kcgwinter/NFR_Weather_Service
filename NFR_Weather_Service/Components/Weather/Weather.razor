@@ -8,15 +8,26 @@
 @rendermode InteractiveServer
 
 @inject WeatherService WeatherService
+@inject ILogger<WeatherReport> Logger
 
-<PageTitle>Weather</PageTitle>
+<PageTitle>Weather Data</PageTitle>
 
-<h1>Weather Data</h1>
+<h1>Weather Preservation Weather Demo (NFR)</h1>
 
-<p>Welcome! <br/> this is a demo for interview process at NFR</p>
+<p>Welcome! <br/> this is a demo for the interview process at NFR</p>
 
-<input @bind="_addressString" placeholder="Enter address..." class="rounded" style="min-width: 300px;"/>
-<button @onclick="LoadWeatherInformation" class="rounded">Search</button>
+<input @bind="_addressString" placeholder="Enter US street address..." class="form-control rounded" style="min-width: 300px;"/>
+<button @onclick="LoadWeatherInformation" disabled="@_isLoading" class="btn rounded px-4">
+@if(_isLoading)
+{
+    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true></span>
+    <span>Loading ...</span>
+}
+else
+{
+    <span>Search</span>
+}
+</button>
 
 <div class="mt-3">
     @if (_isLoading)
@@ -25,9 +36,17 @@
             <em>Loading...</em>
         </p>
     }
+    else if(!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div>
+            <strong>Unable to generate report</strong>
+            <p>@_errormessage</p>
+        </div>
+    }
     else if (_weatherReport == null)
     {
         <p>No weather information loaded yet</p>
+        <p>Enter full address above in the search field (e.g. <em>136 Maple Ave, Claremont, NH 03743</em> to receive weather data</p>
     }
     else
     {
@@ -39,25 +58,37 @@
     private WeatherReport? _weatherReport;
     private string? _addressString;
     private bool _isLoading;
+    private string> _errorMessage;
 
     private async Task LoadWeatherInformation()
     {
         if (string.IsNullOrWhiteSpace(_addressString))
-            return;
+            {
+                _errorMessage = "Please enter a valid US street address";
+                _weatherReport = null;
+                return;
+            }
 
         _isLoading = true;
         StateHasChanged();
 
         try
         {
-            Console.WriteLine("Loading weather data...");
+            Logger.LogInformation("Receiving weather data for: {Address}", _addressString);
             _weatherReport = await WeatherService.GetReportDataAsync(_addressString);
-
+            _errorMessage = "";
             Console.WriteLine(_weatherReport);
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.LogError(ex, "Network or Http error while receiving address weather data for: {Address}", _addressString);
+            _errorMessage = "No connection to weather service. Please check your network connection or try again later.";
+            _weatherReport = null;
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Error while loading {e.Message}");
+            Logger.LogWarning(ex, "Couldn't resolve weather data for: {Address}", _addressString);
+            _errorMessage = ex.Message;
             _weatherReport = null;
         }
         finally
