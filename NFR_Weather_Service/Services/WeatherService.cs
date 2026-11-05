@@ -192,8 +192,8 @@ public class WeatherService
 
                 double inches = unitCode switch
                 {
-                        "wmoUnit:m" => rawVal * 39.3701, //Meter to Inches
-                        "wmoUnit:mm" => rawVal / 25.4,
+                        "wmoUnit:m" or "unit:m" => rawVal * 39.3701, //Meter to Inches
+                        "wmoUnit:mm" or "unit:mm" => rawVal / 25.4,
                         _         => rawVal / 25.4            
                 };
                 return (inches, windowLabels[i]);
