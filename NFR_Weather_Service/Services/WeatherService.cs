@@ -31,7 +31,6 @@ public class WeatherService
         //Step 4: Fetch Grid Data (Snow & Ice Depth) // if possible
         var (snowInches, iceInches) = await GetGridAccuAsync(gridUrl);
 
-        //Todo: remove throw
         return new WeatherReport(
             address,
             stationId,
