@@ -65,9 +65,10 @@ public class WeatherService
         double? tempC = GetValueFromJson(props, "temperature");
         double? tempF = tempC.HasValue ? (tempC.Value * 9.0 / 5.0) + 32.0 : null;
 
-        //rainfall of last hour
-        double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");
-        double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
+        //rainfall of last hour or if 0 check if last 3 hours
+        //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
+        //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
+        var (rainInches, _) = GetPrecipitationInInches(props);
 
         bool frozenPrecipitation = false;
         //todo: get Freezing Rain
@@ -169,5 +170,34 @@ public class WeatherService
         }
 
         return max;
+    }
+
+    //Todo:check function for functionality
+    private static (double Inches, string WindowLabel) GetPrecipitationInInches(JsonElement props)
+    {
+        string[] propNames = ["precipitationLastHour", "precipitationLast3Hours"];
+        string[] windowLabels = ["1 hr", "3 hrs"];
+
+        for (int i = 0; i < propNames.Length; i++)
+        {
+            string propName = propNames[i];
+            if(props.TryGetProperty(propName, out var prop) &&
+               prop.TryGetProperty("value", out var val) &&
+               val.ValueKind == JsonValueKind.Number)
+            {
+                double rawVal = val.GetDouble();
+                string unitCode = prop.TryGetProperty("unitCode", out var unit) ? unit.GetString() ?? "" : "";
+
+                double inches = unitCode switch
+                {
+                        "wmoUnit:m" => rawVal * 39.3701, //Meter to Inches
+                        "wmoUnit:mm" => rawVal / 25.4,
+                        _         => rawVal / 25.4            
+                };
+                return (inches, windowLabels[i]);
+                                
+            }
+        }
+        return (0.0, "None");
     }
 }
