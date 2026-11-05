@@ -62,6 +62,7 @@ else
 
     private async Task LoadWeatherInformation()
     {
+        
         if (string.IsNullOrWhiteSpace(_addressString))
             {
                 _errorMessage = "Please enter a valid US street address";
@@ -70,6 +71,7 @@ else
             }
 
         _isLoading = true;
+        _errorMessage = null;
         StateHasChanged();
 
         try
