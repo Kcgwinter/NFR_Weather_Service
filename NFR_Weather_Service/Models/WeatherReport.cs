@@ -5,6 +5,7 @@ public record WeatherReport(
     string StationId,
     double? TempFahrenheit,
     double RainInches,
+    string? RainTimeFrame,
     double SnowInches,
     double IceInches,
     bool FreezingRainActive
