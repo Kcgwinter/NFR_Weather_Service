@@ -27,7 +27,7 @@ public class WeatherService
         //Step 2: Lookup Station / Grid Url from (NOAA API) with Long/Lat Coordinates
         var (stationId, gridUrl) = await GetNOAADataAsync(coordinates);
         //Step 3: Fetch Weather Stats from the closest station
-        var (tempF, rainInches, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
+        var (tempF, rainInches, rainTimeFrame, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
         //Step 4: Fetch Grid Data (Snow & Ice Depth) // if possible
         var (snowInches, iceInches) = await GetGridAccuAsync(gridUrl);
 
@@ -37,6 +37,7 @@ public class WeatherService
             stationId,
             tempF,
             rainInches,
+            rainTimeFrame,
             snowInches,
             iceInches,
             isFrozenPrecipitation
@@ -53,7 +54,7 @@ public class WeatherService
         return (snowMeters * 39.3701, iceMeters * 39.3701);
     }
 
-    private async Task<(double? tempF, double rainInches, bool isFreezingRain)> GetLatestWeatherDataAsync(
+    private async Task<(double? tempF, double rainInches, string rainTimeFrame bool isFreezingRain)> GetLatestWeatherDataAsync(
         string stationId)
     {
         string url = $"{noaaUrl}/stations/{stationId}/observations/latest";
@@ -68,7 +69,7 @@ public class WeatherService
         //rainfall of last hour or if 0 check if last 3 hours
         //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
         //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
-        var (rainInches, _) = GetPrecipitationInInches(props);
+        var (rainInches, rainTimeFrame) = GetPrecipitationInInches(props);
 
         bool frozenPrecipitation = false;
         //todo: get Freezing Rain
@@ -79,7 +80,7 @@ public class WeatherService
                                    desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
                                    desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
 
-        return (tempF, rainInches, frozenPrecipitation);
+        return (tempF, rainInches, rainTimeFrame, frozenPrecipitation);
     }
 
     private async Task<(string stationId, string gridUrl)> GetNOAADataAsync(Coordinates coordinates)
