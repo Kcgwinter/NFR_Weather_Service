@@ -1,0 +1,70 @@
+﻿@page "/weather"
+@page "/"
+@using NFR_Weather_Service.Components.Weather
+@using NFR_Weather_Service.Models
+@using NFR_Weather_Service.Services
+
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+
+@inject WeatherService WeatherService
+
+<PageTitle>Weather</PageTitle>
+
+<h1>Weather Data</h1>
+
+<p>Welcome! <br/> this is a demo for interview process at NFR</p>
+
+<input @bind="_addressString" placeholder="Enter address..." class="rounded" style="min-width: 300px;"/>
+<button @onclick="LoadWeatherInformation" class="rounded">Search</button>
+
+<div class="mt-3">
+    @if (_isLoading)
+    {
+        <p>
+            <em>Loading...</em>
+        </p>
+    }
+    else if (_weatherReport == null)
+    {
+        <p>No weather information loaded yet</p>
+    }
+    else
+    {
+        <WeatherReportCard Report="@_weatherReport"/>
+    }
+</div>
+
+@code {
+    private WeatherReport? _weatherReport;
+    private string? _addressString;
+    private bool _isLoading;
+
+    private async Task LoadWeatherInformation()
+    {
+        if (string.IsNullOrWhiteSpace(_addressString))
+            return;
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Console.WriteLine("Loading weather data...");
+            _weatherReport = await WeatherService.GetReportDataAsync(_addressString);
+
+            Console.WriteLine(_weatherReport);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error while loading {e.Message}");
+            _weatherReport = null;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+}

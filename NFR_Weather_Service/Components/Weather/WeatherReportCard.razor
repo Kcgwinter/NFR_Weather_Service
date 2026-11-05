@@ -1,0 +1,65 @@
+﻿@using NFR_Weather_Service.Models
+
+@rendermode InteractiveAuto
+
+<div class="card shadow-sm border-0 mb-4" style="max-width: 540px;">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+        <div>
+            <h5 class="mb-0">@Report.Address</h5>
+            <small class="text-white-50">Station: @Report.StationId</small>
+        </div>
+        @if (Report.FreezingRainActive)
+        {
+            <span class="badge bg-danger px-3 py-2 animate-pulse">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> Freezing Rain Active
+            </span>
+        }
+        else
+        {
+            <span class="badge bg-success px-3 py-2">
+                <i class="bi bi-check-circle-fill me-1"></i> Normal Conditions
+            </span>
+        }
+    </div>
+    
+    <div class="card-body bg-light">
+        <!-- Temperature Banner -->
+        <div class="d-flex align-items-center justify-content-between p-3 mb-3 bg-white rounded shadow-sm">
+            <div>
+                <span class="text-muted small d-block">Current Temperature</span>
+                <h2 class="display-6 fw-bold mb-0 text-primary">@Report.TempFahrenheit?.ToString("F1")°F</h2>
+            </div>
+            <div class="fs-1 text-secondary">
+                <i class="bi bi-thermometer-half"></i>
+            </div>
+        </div>
+
+        <!-- Precipitation Grid -->
+        <h6 class="text-muted text-uppercase small fw-bold mb-2">Precipitation Totals</h6>
+        <div class="row g-2">
+            <div class="col-4">
+                <div class="p-2 bg-white rounded border text-center">
+                    <span class="d-block text-muted small">Rain</span>
+                    <strong class="text-dark">@Report.RainInches.ToString("F2")"</strong>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-2 bg-white rounded border text-center">
+                    <span class="d-block text-muted small">Snow</span>
+                    <strong class="text-dark">@Report.SnowInches.ToString("F1")"</strong>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-2 bg-white rounded border text-center">
+                    <span class="d-block text-muted small">Ice</span>
+                    <strong class="text-dark">@Report.IceInches.ToString("F1")"</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public WeatherReport Report { get; set; } = default!;
+}

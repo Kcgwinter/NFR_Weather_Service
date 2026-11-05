@@ -1,10 +1,14 @@
 using NFR_Weather_Service.Components;
+using NFR_Weather_Service.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddScoped<WeatherService>();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
@@ -17,7 +21,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); //deactivated for local purpose
 
 app.UseAntiforgery();
 
