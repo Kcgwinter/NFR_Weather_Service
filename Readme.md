@@ -75,7 +75,7 @@ NFR_Weather_Service/
 
 ## Notes & Limitations
 
-- The station selection simply picks the first element from the NOAA stations array; it does not compute distances.
+- NOAA returns nearby stations ordered by distance; if the closest station is offline, the service automatically falls back to the next nearest station that is reporting.
 - Freezing‑rain detection uses simple text‑matching – it's not a fully comprehensive algorithm.
 - HTTPS redirection is disabled for local development
 

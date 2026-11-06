@@ -22,9 +22,9 @@ public class WeatherService
         var coordinates = await ConvertAddressAsync(address);
 
         //Step 2: Lookup Station / Grid Url from (NOAA API) with Long/Lat Coordinates
-        var (stationId, gridUrl) = await GetNoaaDataAsync(coordinates);
-        //Step 3: Fetch Weather Stats from the closest station
-        var (tempF, rainInches, rainTimeFrame, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
+        var (stations, gridUrl) = await GetNoaaDataAsync(coordinates);
+        //Step 3: Fetch Weather Stats from the closest station (with fallback if first station has no data)
+        var (stationId, tempF, rainInches, rainTimeFrame, isFrozenPrecipitation) = await GetLatestWeatherDataWithFallbackAsync(stations);
         //Step 4: Fetch Grid Data (Snow & Ice Depth) // if possible
         var (snowInches, iceInches) = await GetGridAccuAsync(gridUrl);
 
@@ -39,71 +39,8 @@ public class WeatherService
             isFrozenPrecipitation
         );
     }
-
-    private async Task<(double snowInches, double iceInches)> GetGridAccuAsync(string gridUrl)
-    {
-        using var doc = await GetJsonAsync(gridUrl, "application/geo+json");
-        var props = doc.RootElement.GetProperty("properties");
-        double snowMeters = GetMaxFromGridArray(props, "snowfallAmount");
-        double iceMeters = GetMaxFromGridArray(props, "iceAccumulation");
-        
-        return (snowMeters * 39.3701, iceMeters * 39.3701);
-    }
-
-    private async Task<(double? tempF, double rainInches, string rainTimeFrame, bool isFreezingRain)> GetLatestWeatherDataAsync(
-        string stationId)
-    {
-        string url = $"{NoaaUrl}/stations/{stationId}/observations/latest";
-
-        using var doc = await GetJsonAsync(url, "application/geo+json");
-
-        //temperature of last hour
-        var props = doc.RootElement.GetProperty("properties");
-        double? tempC = GetValueFromJson(props, "temperature");
-        double? tempF = ConvertToFahrenheit(tempC);
-
-        //rainfall of last hour or if 0 check last 3 hours
-        //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
-        //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
-        var (rainInches, rainTimeFrame) = GetPrecipitationInInches(props);
-
-        //todo: get Freezing Rain
-        string desc = props.TryGetProperty("textDescription", out var d) ? d.GetString() ?? "" : "";
-        var frozenPrecipitation = desc.Contains("Freezing", StringComparison.OrdinalIgnoreCase) ||
-                                  desc.Contains("Snow", StringComparison.OrdinalIgnoreCase) ||
-                                  desc.Contains("Sleet", StringComparison.OrdinalIgnoreCase) ||
-                                  desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
-                                  desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
-
-        return (tempF, rainInches, rainTimeFrame, frozenPrecipitation);
-    }
-
-
-    private async Task<(string stationId, string gridUrl)> GetNoaaDataAsync(Coordinates coordinates)
-    {
-        string pointUrl =
-            FormattableString.Invariant(
-                $"{NoaaUrl}/points/{coordinates.Latitude:F4},{coordinates.Longitude:F4}");
-        using var pointDoc = await GetJsonAsync(pointUrl, "application/geo+json");
-
-        var props = pointDoc.RootElement.GetProperty("properties");
-
-        string stationsUrl = props.GetProperty("observationStations").GetString()!;
-        string gridUrl = props.GetProperty("forecastGridData").GetString()!;
-
-        using var stationDoc = await GetJsonAsync(stationsUrl, acceptHeader: "application/geo+json");
-        var features = stationDoc.RootElement.GetProperty("features");
-
-        //Todo: check if no station is nearby
-        if (features.GetArrayLength() == 0)
-            throw new Exception(
-                $"No stations found near target coordinated {coordinates.Latitude}/{coordinates.Longitude}");
-
-        string stationId = features[0].GetProperty("properties").GetProperty("stationIdentifier").GetString()!;
-
-        return (stationId, gridUrl);
-    }
-
+    
+    
     private async Task<Coordinates> ConvertAddressAsync(string address)
     {
         string encoded = HttpUtility.UrlEncode(address);
@@ -120,6 +57,94 @@ public class WeatherService
         var coords = matches[0].GetProperty("coordinates");
         return new Coordinates(coords.GetProperty("y").GetDouble(), coords.GetProperty("x").GetDouble());
     }
+    
+    
+    private async Task<(List<(string stationId, string gridUrl)> stations, string gridUrl)> GetNoaaDataAsync(Coordinates coordinates)
+    {
+        string pointUrl =
+            FormattableString.Invariant(
+                $"{NoaaUrl}/points/{coordinates.Latitude:F4},{coordinates.Longitude:F4}");
+        using var pointDoc = await GetJsonAsync(pointUrl, "application/geo+json");
+
+        var props = pointDoc.RootElement.GetProperty("properties");
+
+        string stationsUrl = props.GetProperty("observationStations").GetString()!;
+        string gridUrl = props.GetProperty("forecastGridData").GetString()!;
+
+        using var stationDoc = await GetJsonAsync(stationsUrl, acceptHeader: "application/geo+json");
+        var features = stationDoc.RootElement.GetProperty("features");
+
+        if (features.GetArrayLength() == 0)
+            throw new Exception(
+                $"No stations found near target coordinated {coordinates.Latitude}/{coordinates.Longitude}");
+
+        var stationList = new List<(string stationId, string gridUrl)>();
+        foreach (var feature in features.EnumerateArray())
+        {
+            var stationId = feature.GetProperty("properties").GetProperty("stationIdentifier").GetString()!;
+            stationList.Add((stationId, gridUrl));
+        }
+
+        return (stationList, gridUrl);
+    }
+    
+    
+    private async Task<(string stationId, double? tempF, double rainInches, string rainTimeFrame, bool isFreezingRain)> GetLatestWeatherDataWithFallbackAsync(
+        List<(string stationId, string gridUrl)> stations)
+    {
+        Exception? lastError = null;
+
+        foreach (var (stationId, _) in stations)
+        {
+            try
+            {
+                string url = $"{NoaaUrl}/stations/{stationId}/observations/latest";
+
+                using var doc = await GetJsonAsync(url, "application/geo+json");
+
+                //temperature of last hour
+                var props = doc.RootElement.GetProperty("properties");
+                double? tempC = GetValueFromJson(props, "temperature");
+                double? tempF = ConvertToFahrenheit(tempC);
+
+                //rainfall of last hour or if 0 check last 3 hours
+                //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
+                //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
+                var (rainInches, rainTimeFrame) = GetPrecipitationInInches(props);
+
+                //todo: get Freezing Rain
+                string desc = props.TryGetProperty("textDescription", out var d) ? d.GetString() ?? "" : "";
+                var frozenPrecipitation = desc.Contains("Freezing", StringComparison.OrdinalIgnoreCase) ||
+                                          desc.Contains("Snow", StringComparison.OrdinalIgnoreCase) ||
+                                          desc.Contains("Sleet", StringComparison.OrdinalIgnoreCase) ||
+                                          desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
+                                          desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
+
+                return (stationId, tempF, rainInches, rainTimeFrame, frozenPrecipitation);
+            }
+            catch (Exception ex)
+            {
+                // Station returned error -> try the next station
+                lastError = ex;
+            }
+        }
+
+        throw new Exception(
+            $"No weather station with observation data was found near the target coordinates. Last error: {lastError?.Message}");
+    }
+
+    private async Task<(double snowInches, double iceInches)> GetGridAccuAsync(string gridUrl)
+    {
+        using var doc = await GetJsonAsync(gridUrl, "application/geo+json");
+        var props = doc.RootElement.GetProperty("properties");
+        double snowMeters = GetMaxFromGridArray(props, "snowfallAmount");
+        double iceMeters = GetMaxFromGridArray(props, "iceAccumulation");
+        
+        return (snowMeters * 39.3701, iceMeters * 39.3701);
+    }
+
+
+
 
     private async Task<JsonDocument> GetJsonAsync(string url, string acceptHeader)
     {

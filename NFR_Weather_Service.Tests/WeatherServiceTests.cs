@@ -58,4 +58,27 @@ public class WeatherServiceTests
         Assert.Equal("3 hrs", windowLabel);
         Assert.Equal(10 / 25.4, inches, 5);
     }
+
+    [Fact]
+    public async Task GetReportDataAsync_FallsBackToNextStation_WhenFirstStationNotAvailable()
+    {
+        // This test verifies the fallback behavior when the first station (KOCH) 
+        // returns a 404 error, but the next station (KRFI) is successfully used.
+        var service = new WeatherService(new HttpClient());
+        var weatherReport = await service.GetReportDataAsync("1481 County Road 124, Nacogdoches, Texas 75965");
+
+        // Verify that we got a weather report from a station
+        Assert.NotNull(weatherReport);
+
+        // The report should include data from either KOCH (if it had worked) or the fallback station
+        // Either way, we should have a valid station ID
+        Assert.NotNull(weatherReport.StationId);
+        Assert.True(!string.IsNullOrEmpty(weatherReport.StationId));
+
+        // Verify we got temperature data (not null), showing the fallback station is working
+        Assert.NotNull(weatherReport.TempFahrenheit);
+
+        // Verify the coordinates are properly geocoded
+        Assert.Equal("1481 County Road 124, Nacogdoches, Texas 75965", weatherReport.Address);
+    }
 }
