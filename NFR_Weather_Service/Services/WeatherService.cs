@@ -1,19 +1,16 @@
 ﻿using System.Text.Json;
 using System.Web;
-using Microsoft.AspNetCore.Localization;
 using NFR_Weather_Service.Models;
 
 namespace NFR_Weather_Service.Services;
 
 public class WeatherService
 {
-    private readonly ILogger<WeatherService> _logger;
     private readonly HttpClient _http;
-    private string noaaUrl = "https://api.weather.gov";
+    private const string NoaaUrl = "https://api.weather.gov";
 
-    public WeatherService(ILogger<WeatherService> logger, HttpClient http)
+    public WeatherService(HttpClient http)
     {
-        _logger = logger;
         _http = http;
 
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("NFR Weather Service Demo (kcgwinter@gmail.com)");
@@ -56,28 +53,27 @@ public class WeatherService
     private async Task<(double? tempF, double rainInches, string rainTimeFrame, bool isFreezingRain)> GetLatestWeatherDataAsync(
         string stationId)
     {
-        string url = $"{noaaUrl}/stations/{stationId}/observations/latest";
+        string url = $"{NoaaUrl}/stations/{stationId}/observations/latest";
 
         using var doc = await GetJsonAsync(url, "application/geo+json");
 
         //temperature of last hour
         var props = doc.RootElement.GetProperty("properties");
         double? tempC = GetValueFromJson(props, "temperature");
-        double? tempF = tempC.HasValue ? (tempC.Value * 9.0 / 5.0) + 32.0 : null;
+        double? tempF = tempC * 9.0 / 5.0 + 32.0;
 
-        //rainfall of last hour or if 0 check if last 3 hours
+        //rainfall of last hour or if 0 check last 3 hours
         //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
         //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
         var (rainInches, rainTimeFrame) = GetPrecipitationInInches(props);
 
-        bool frozenPrecipitation = false;
         //todo: get Freezing Rain
         string desc = props.TryGetProperty("textDescription", out var d) ? d.GetString() ?? "" : "";
-        frozenPrecipitation = desc.Contains("Freezing", StringComparison.OrdinalIgnoreCase) ||
-                                   desc.Contains("Snow", StringComparison.OrdinalIgnoreCase) ||
-                                   desc.Contains("Sleet", StringComparison.OrdinalIgnoreCase) ||
-                                   desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
-                                   desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
+        var frozenPrecipitation = desc.Contains("Freezing", StringComparison.OrdinalIgnoreCase) ||
+                                  desc.Contains("Snow", StringComparison.OrdinalIgnoreCase) ||
+                                  desc.Contains("Sleet", StringComparison.OrdinalIgnoreCase) ||
+                                  desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
+                                  desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
 
         return (tempF, rainInches, rainTimeFrame, frozenPrecipitation);
     }
@@ -86,7 +82,7 @@ public class WeatherService
     {
         string pointUrl =
             FormattableString.Invariant(
-                $"{noaaUrl}/points/{coordinates.Latitude:F4},{coordinates.Longitude:F4}");
+                $"{NoaaUrl}/points/{coordinates.Latitude:F4},{coordinates.Longitude:F4}");
         using var pointDoc = await GetJsonAsync(pointUrl, "application/geo+json");
 
         var props = pointDoc.RootElement.GetProperty("properties");
@@ -110,9 +106,6 @@ public class WeatherService
     private async Task<Coordinates> ConvertAddressAsync(string address)
     {
         string encoded = HttpUtility.UrlEncode(address);
-        // string url =
-        //     $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
-
         string url =
             $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
 
@@ -183,11 +176,13 @@ public class WeatherService
         for (int i = 0; i < propNames.Length; i++)
         {
             string propName = propNames[i];
+            
             if(props.TryGetProperty(propName, out var prop) &&
                prop.TryGetProperty("value", out var val) &&
-               val.ValueKind == JsonValueKind.Number)
+               val.ValueKind is JsonValueKind.Number or JsonValueKind.Null)
             {
-                double rawVal = val.GetDouble();
+                
+                double rawVal = val.ValueKind == JsonValueKind.Number ? val.GetDouble() : 0.0;
                 string unitCode = prop.TryGetProperty("unitCode", out var unit) ? unit.GetString() ?? "" : "";
 
                 double inches = unitCode switch
@@ -197,7 +192,6 @@ public class WeatherService
                         _         => rawVal / 25.4            
                 };
                 return (inches, windowLabels[i]);
-                                
             }
         }
         return (0.0, "None");
