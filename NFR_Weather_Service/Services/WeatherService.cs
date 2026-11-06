@@ -60,7 +60,7 @@ public class WeatherService
         //temperature of last hour
         var props = doc.RootElement.GetProperty("properties");
         double? tempC = GetValueFromJson(props, "temperature");
-        double? tempF = tempC * 9.0 / 5.0 + 32.0;
+        double? tempF = tempC.HasValue ? tempC.Value * 9.0 / 5.0 + 32.0 : null;
 
         //rainfall of last hour or if 0 check last 3 hours
         //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
@@ -177,12 +177,11 @@ public class WeatherService
         {
             string propName = propNames[i];
             
-            if(props.TryGetProperty(propName, out var prop) &&
-               prop.TryGetProperty("value", out var val) &&
-               val.ValueKind is JsonValueKind.Number or JsonValueKind.Null)
+            if (props.TryGetProperty(propName, out var prop) &&
+                prop.TryGetProperty("value", out var val) &&
+                val.ValueKind == JsonValueKind.Number)
             {
-                
-                double rawVal = val.ValueKind == JsonValueKind.Number ? val.GetDouble() : 0.0;
+                double rawVal = val.GetDouble();
                 string unitCode = prop.TryGetProperty("unitCode", out var unit) ? unit.GetString() ?? "" : "";
 
                 double inches = unitCode switch
