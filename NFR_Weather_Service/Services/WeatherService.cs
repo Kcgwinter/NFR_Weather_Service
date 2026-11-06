@@ -27,7 +27,7 @@ public class WeatherService
         //Step 2: Lookup Station / Grid Url from (NOAA API) with Long/Lat Coordinates
         var (stationId, gridUrl) = await GetNOAADataAsync(coordinates);
         //Step 3: Fetch Weather Stats from the closest station
-        var (tempF, rainInches, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
+        var (tempF, rainInches, rainTimeFrame, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
         //Step 4: Fetch Grid Data (Snow & Ice Depth) // if possible
         var (snowInches, iceInches) = await GetGridAccuAsync(gridUrl);
 
@@ -36,6 +36,7 @@ public class WeatherService
             stationId,
             tempF,
             rainInches,
+            rainTimeFrame,
             snowInches,
             iceInches,
             isFrozenPrecipitation
@@ -52,7 +53,7 @@ public class WeatherService
         return (snowMeters * 39.3701, iceMeters * 39.3701);
     }
 
-    private async Task<(double? tempF, double rainInches, bool isFreezingRain)> GetLatestWeatherDataAsync(
+    private async Task<(double? tempF, double rainInches, string rainTimeFrame, bool isFreezingRain)> GetLatestWeatherDataAsync(
         string stationId)
     {
         string url = $"{noaaUrl}/stations/{stationId}/observations/latest";
@@ -64,9 +65,10 @@ public class WeatherService
         double? tempC = GetValueFromJson(props, "temperature");
         double? tempF = tempC.HasValue ? (tempC.Value * 9.0 / 5.0) + 32.0 : null;
 
-        //rainfall of last hour
-        double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");
-        double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
+        //rainfall of last hour or if 0 check if last 3 hours
+        //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
+        //double rainInches = rainInMeter.HasValue ? rainInMeter.Value * 39.3701 : 0.0;
+        var (rainInches, rainTimeFrame) = GetPrecipitationInInches(props);
 
         bool frozenPrecipitation = false;
         //todo: get Freezing Rain
@@ -77,7 +79,7 @@ public class WeatherService
                                    desc.Contains("Ice Pellets", StringComparison.OrdinalIgnoreCase) ||
                                    desc.Contains("Blizzard", StringComparison.OrdinalIgnoreCase);
 
-        return (tempF, rainInches, frozenPrecipitation);
+        return (tempF, rainInches, rainTimeFrame, frozenPrecipitation);
     }
 
     private async Task<(string stationId, string gridUrl)> GetNOAADataAsync(Coordinates coordinates)
@@ -112,7 +114,7 @@ public class WeatherService
         //     $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
 
         string url =
-            $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=4&format=json";
+            $"https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address={encoded}&benchmark=Public_AR_Current&format=json";
 
         using var doc = await GetJsonAsync(url, acceptHeader: "application/json");
 
@@ -130,6 +132,8 @@ public class WeatherService
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("Accept", acceptHeader);
         using var response = await _http.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
 
         string json = await response.Content.ReadAsStringAsync();
         JsonDocument document = JsonDocument.Parse(json);
@@ -168,5 +172,34 @@ public class WeatherService
         }
 
         return max;
+    }
+
+    //Todo:check function for functionality
+    private static (double Inches, string WindowLabel) GetPrecipitationInInches(JsonElement props)
+    {
+        string[] propNames = ["precipitationLastHour", "precipitationLast3Hours"];
+        string[] windowLabels = ["1 hr", "3 hrs"];
+
+        for (int i = 0; i < propNames.Length; i++)
+        {
+            string propName = propNames[i];
+            if(props.TryGetProperty(propName, out var prop) &&
+               prop.TryGetProperty("value", out var val) &&
+               val.ValueKind == JsonValueKind.Number)
+            {
+                double rawVal = val.GetDouble();
+                string unitCode = prop.TryGetProperty("unitCode", out var unit) ? unit.GetString() ?? "" : "";
+
+                double inches = unitCode switch
+                {
+                        "wmoUnit:m" or "unit:m" => rawVal * 39.3701, //Meter to Inches
+                        "wmoUnit:mm" or "unit:mm" => rawVal / 25.4,
+                        _         => rawVal / 25.4            
+                };
+                return (inches, windowLabels[i]);
+                                
+            }
+        }
+        return (0.0, "None");
     }
 }
