@@ -37,15 +37,10 @@ All of this is rendered client-side through an interactive Blazor Server UI.
 - .NET 10 SDK
 
 ### Run the app
-dotnet run
+- dotnet build
+- dotnet run
 
 Or run the solution NFR_Weather_Service.sln
-
-### Local URLs
-
-| Profile | URL |
-|---------|-----|
-| HTTP | `http://localhost:5184` |
 
 ## Project Structure
 
