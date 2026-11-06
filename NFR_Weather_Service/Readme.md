@@ -96,4 +96,4 @@ NFR_Weather_Service/
 ## Future Improvement
 * Address search with example searches (dropdown of possible searches)
 * Optimization of search and text matching search
-* Implement testing
+* Implement Testing
