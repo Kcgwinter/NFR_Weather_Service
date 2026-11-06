@@ -22,7 +22,7 @@ public class WeatherService
         var coordinates = await ConvertAddressAsync(address);
 
         //Step 2: Lookup Station / Grid Url from (NOAA API) with Long/Lat Coordinates
-        var (stationId, gridUrl) = await GetNOAADataAsync(coordinates);
+        var (stationId, gridUrl) = await GetNoaaDataAsync(coordinates);
         //Step 3: Fetch Weather Stats from the closest station
         var (tempF, rainInches, rainTimeFrame, isFrozenPrecipitation) = await GetLatestWeatherDataAsync(stationId);
         //Step 4: Fetch Grid Data (Snow & Ice Depth) // if possible
@@ -60,7 +60,7 @@ public class WeatherService
         //temperature of last hour
         var props = doc.RootElement.GetProperty("properties");
         double? tempC = GetValueFromJson(props, "temperature");
-        double? tempF = tempC.HasValue ? tempC.Value * 9.0 / 5.0 + 32.0 : null;
+        double? tempF = ConvertToFahrenheit(tempC);
 
         //rainfall of last hour or if 0 check last 3 hours
         //double? rainInMeter = GetValueFromJson(props, "precipitationLastHour");        // refactored to LastHours not always has value and gives different units
@@ -78,7 +78,8 @@ public class WeatherService
         return (tempF, rainInches, rainTimeFrame, frozenPrecipitation);
     }
 
-    private async Task<(string stationId, string gridUrl)> GetNOAADataAsync(Coordinates coordinates)
+
+    private async Task<(string stationId, string gridUrl)> GetNoaaDataAsync(Coordinates coordinates)
     {
         string pointUrl =
             FormattableString.Invariant(
@@ -133,7 +134,7 @@ public class WeatherService
         return document;
     }
 
-    private static double? GetValueFromJson(JsonElement parent, string propName)
+    public static double? GetValueFromJson(JsonElement parent, string propName)
     {
         if (parent.TryGetProperty(propName, out var prop) &&
             prop.TryGetProperty("value", out var val) &&
@@ -145,7 +146,7 @@ public class WeatherService
         return null;
     }
 
-    private static double GetMaxFromGridArray(JsonElement props, string key)
+    public static double GetMaxFromGridArray(JsonElement props, string key)
     {
         if (!props.TryGetProperty(key, out var layer) ||
             !layer.TryGetProperty("values", out var values) ||
@@ -168,7 +169,7 @@ public class WeatherService
     }
 
     //Todo:check function for functionality
-    private static (double Inches, string WindowLabel) GetPrecipitationInInches(JsonElement props)
+    public static (double Inches, string WindowLabel) GetPrecipitationInInches(JsonElement props)
     {
         string[] propNames = ["precipitationLastHour", "precipitationLast3Hours"];
         string[] windowLabels = ["1 hr", "3 hrs"];
@@ -195,4 +196,10 @@ public class WeatherService
         }
         return (0.0, "None");
     }
+    
+    public static double? ConvertToFahrenheit(double? celsius)
+    {
+        return celsius.HasValue ? celsius.Value * 9.0 / 5.0 + 32.0 : null;
+    }
+    
 }

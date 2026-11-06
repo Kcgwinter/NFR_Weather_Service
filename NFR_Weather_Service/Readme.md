@@ -4,10 +4,11 @@ A Blazor Web App that provides current weather information for any given address
 
 ## Overview
 
-The NFR Weather Service is a demo web application built with Blazor that lets users search for weather conditions by entering any street address. Once an address is submitted, the app:
+The NFR Weather Service is a demo web application built with Blazor that lets users search for weather on a specific address. 
+Once an address is submitted, the app:
 
-1. Converts the address to geographic coordinates (latitude/longitude) via the [US Census Bureau Geocoding API](https://geocoding.geo.census.gov/).
-2. Uses the resulting coordinates with the [NOAA Weather API](https://api.weather.gov) to find the closest weather station and forecast grid.
+1. Converts the address to geographic coordinates (lat/long) via the https://geocoding.geo.census.gov/.
+2. Uses the resulting coordinates with the NOAA Weather API to find the closest weather station and forecast grid.
 3. Retrieves the latest weather observation from that station (temperature, precipitation, and freezing-precipitation status).
 4. Fetches accumulated snow and ice data from the NOAA forecast grid.
 
@@ -25,24 +26,20 @@ All of this is rendered client-side through an interactive Blazor Server UI.
 ## Tech Stack
 
 - **.NET 10** (ASP.NET Core Web SDK, `net10.0`)
-- **Blazor Web App** with **Interactive Server** render mode
-- **Razor Components** (`.razor`)
+- **Blazor Web App**
 - **Bootstrap 5** for styling
-- **NOAA Weather API** (`https://api.weather.gov`)
-- **Census Geocoding API** (`https://geocoding.geo.census.gov`)
+- **NOAA Weather API** https://api.weather.gov
+- **Census Geocoding API** https://geocoding.geo.census.gov
 
 ## Getting Started
 ### Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- .NET 10 SDK
 
 ### Run the app
-
-```bash
 dotnet run
-```
 
-Or run the solution `NFR_Weather_Service.sln`.
+Or run the solution NFR_Weather_Service.sln
 
 ### Local URLs
 
@@ -94,6 +91,6 @@ NFR_Weather_Service/
 - [US Census Geocoding API](https://www.census.gov/geographies/reference-files/time-series/geo/geocoding.html)
 
 ## Future Improvement
-* Address search with example searches (dropdown of possible searches)
+* Address search with example searches (dropdown of possible matching addresses)
 * Optimization of search and text matching search
-* Implement Testing
+* Extend basic testing
